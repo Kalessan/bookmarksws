@@ -19,9 +19,18 @@ import com.cgi.training.bookmarksws.User;
 public class BookmarkService {
 
 	static boolean userNotFound = false;
+	static boolean siteNotFound = false;
+	static boolean newSiteCreated = false;
 
 	public static final Logger LOGGER = Logger.getLogger(BookmarkService.class.getName());
 
+	/**
+	 * Connection to the MySQL database
+	 * 
+	 * @return conn
+	 * @throws SQLException
+	 * @throws ClassNotFoundException
+	 */
 	public Connection getConnection() throws SQLException, ClassNotFoundException {
 		// TODO plutot utiliser un pool de connection
 		// (https://github.com/brettwooldridge/HikariCP)
@@ -51,6 +60,14 @@ public class BookmarkService {
 
 		return user;
 	}
+	
+	private Site mapResultSetToSite(ResultSet result) throws SQLException {
+		Site site = new Site();
+		site.setId(result.getInt("id"));
+		site.setUrl(result.getString("url"));
+
+		return site;
+	}
 
 	public Bookmark mapResultSetToBookmark(ResultSet result) throws SQLException {
 		Bookmark bookmark = new Bookmark();
@@ -77,11 +94,9 @@ public class BookmarkService {
 	 * Fetch a User for a given id
 	 * 
 	 * @param userId
-	 * @return the user associated to the id
+	 * @return The user associated to the id
 	 * @throws SQLException
 	 * @throws ClassNotFoundException
-	 * @throws UserDoesNotExistException
-	 *             if a user does not exist
 	 */
 	public User findUserById(int userId) throws SQLException, ClassNotFoundException {
 		Connection conn = getConnection();
@@ -92,11 +107,9 @@ public class BookmarkService {
 		ResultSet result = stmt.executeQuery();
 
 		if (!result.next()) {
-			// throw new RuntimeException("User not found: " + userId);
 			LOGGER.log(Level.WARNING, "findUserById: " + userId);
 			userNotFound = true;
-			throw new UserDoesNotExistException(" " + userId);
-			// throw new WebApplicationException(400);
+			throw new WebApplicationException(400);
 		}
 
 		User user = mapResultSetToUser(result);
@@ -105,11 +118,41 @@ public class BookmarkService {
 
 		return user;
 	}
+	
+	/**
+	 * Fetch a site entry for a given url
+	 * 
+	 * @param url
+	 * @return The site associated to the url
+	 * @throws ClassNotFoundException
+	 * @throws SQLException
+	 */
+	public Site findSiteIdByURL(String url) throws ClassNotFoundException, SQLException {
+		Connection conn = getConnection();
+
+		PreparedStatement stmt = conn.prepareStatement("SELECT * FROM bookmarks.site WHERE url = ?");
+		stmt.setString(1, url);
+
+		ResultSet result = stmt.executeQuery();
+		
+		// If url doesn't already exist in the database, add it in a new entry
+		if (!result.next()) {
+			LOGGER.log(Level.INFO, "findSiteIdByURL: " + url + " doesn't exist in the database... Creating a new entry");
+			createSite(url);
+			newSiteCreated = true;
+			conn.close();
+			return null;
+		} else {
+			Site site = mapResultSetToSite(result);	
+			conn.close();
+			return site;
+		}
+	}
 
 	/**
 	 * Fetch all the bookmarks for a given user
 	 * 
-	 * @param userId : int, The user from whom to fetch the bookmarks
+	 * @param userId : (int) The user from whom to fetch the bookmarks
 	 * @return a list containing the user's bookmarks. If the user has no bookmarks, return an empty list
 	 * @throws SQLException
 	 * @throws ClassNotFoundException
@@ -144,29 +187,59 @@ public class BookmarkService {
 	}
 	
 	/**
+	 * Create a site entry for a given url
+	 *  
+	 * @param url
+	 * @return null
+	 * @throws SQLException
+	 * @throws ClassNotFoundException
+	 */
+	private Site createSite(String url) throws SQLException, ClassNotFoundException {
+		Connection conn = getConnection();
+		
+		try {			
+			PreparedStatement stmt = conn.prepareStatement("INSERT INTO bookmarks.site (url) VALUES (?)");
+			stmt.setString(1, url);
+			int result = stmt.executeUpdate();
+		} catch(SQLException ex) {
+			LOGGER.log(Level.SEVERE, "Problem while calling createSite", ex);
+			throw ex;
+		} finally {
+			conn.close();			
+		}
+		
+		return null;
+	}
+	
+	/**
 	 * Create a bookmark for given parameters
 	 * @param userId : int, The user from whom to fetch the bookmarks
-	 * @param site : String, The URL to assign to the new bookmark
+	 * @param url : String, The URL to assign to the new bookmark
 	 * @param desc : String, The description of the new bookmark
 	 * @return
 	 * @throws ClassNotFoundException
 	 * @throws SQLException
 	 */
-	public Bookmark createBookmark(int userId, String site, String desc) throws ClassNotFoundException, SQLException {
+	public  Bookmark createBookmark(int userId, String url, String desc) throws SQLException, ClassNotFoundException {
 		User u = findUserById(userId);
-		// TODO Si l'user n'existe pas, le créer. => new method
 		
-		// TODO méthode pour déterminer si le site existe déjà dans la DB
-		// TODO Si le site n'existe pas, le créer. => new method
+		// TODO Call a method to create a user if it doesn't already exist
 		
-		
+		// Call the method to find a site by its URL
+		Site s = findSiteIdByURL(url);
+		if(newSiteCreated) { // In case the url had to be added to the DB, recall the method
+			s = findSiteIdByURL(url);
+		}
 
-		Connection conn = getConnection();
+				Connection conn = getConnection();
 		try {
-			PreparedStatement stmt = conn.prepareStatement("SELECT *");
+			
+			PreparedStatement stmt = conn.prepareStatement("INSERT INTO bookmarks.bookmark (user_id, site_id, description) VALUES (?,?,?)");
 			stmt.setInt(1, userId);
+			stmt.setInt(2, s.getId());
+			stmt.setString(3, desc);
 
-			ResultSet result = stmt.executeQuery();
+			int result = stmt.executeUpdate();
 		} catch(SQLException ex) {
 			LOGGER.log(Level.SEVERE, "Problem while calling createBookmark", ex);
 			throw ex;

@@ -1,5 +1,6 @@
 package com.cgi.training.bookmarksws;
 
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -16,9 +17,16 @@ import com.cgi.training.bookmarksws.Bookmark;
 import com.cgi.training.bookmarksws.BookmarkService;
 import com.cgi.training.bookmarksws.UserDoesNotExistException;
 
-@Path("user/bookmarks")
+@Path("user/{id}/bookmarks")
 public class BookmarksResource {
 	List<Bookmark> bookmarks = new ArrayList<>();
+	
+	/**
+	 * Method called after a GET request to fetch all the bookmarks for a given user
+	 * 
+	 * @param id : (int) user id
+	 * @return A list of all the bookmarks for a given user
+	 */
 	@GET
 	@Produces(MediaType.APPLICATION_JSON)
 	public String getBookmarksById(@PathParam("id") int id) {
@@ -43,25 +51,30 @@ public class BookmarksResource {
 		return bookmarks.toString();
 	}
 
-//	@Path("bookmarks")
+	/**
+	 * Method called after a POST request to add a bookmark for a given user
+	 * 
+	 * @param userId : (int) The user from whom to fetch the bookmarks
+	 * @param site : (String) The URL to assign to the new bookmark
+	 * @param desc : (String) The description of the new bookmark
+	 * @throws SQLException 
+	 * @throws ClassNotFoundException 
+	 */
 	@POST
 	@Produces(MediaType.APPLICATION_JSON)
 	public void postBookmark(
 			@FormParam("userId") int userId,
 			@FormParam("site") String site,
 			@FormParam("desc") String desc
-			) {
+			) throws ClassNotFoundException, SQLException {
 		
 		if(userId == 0 || site == null) {
 			throw new WebApplicationException(400);
 		}
 		
-		// TODO Si site n'existe pas, le créer.
-		
-		// TODO Si site n'existe pas, le créer.
-
-		// Appel de la méthode de création de bookmark
-		BookmarkService.createBookmark(userId, site, desc);
+		// Call the method to create a bookmark
+		BookmarkService bs = new BookmarkService();
+		bs.createBookmark(userId, site, desc);
 
 	}
 	
