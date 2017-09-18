@@ -108,8 +108,9 @@ public class BookmarkService {
 
 		if (!result.next()) {
 			LOGGER.log(Level.WARNING, "findUserById: " + userId);
-			userNotFound = true;
-			throw new WebApplicationException(400);
+			throw new UserDoesNotExistException(" " + userId);
+//			userNotFound = true;
+//			throw new WebApplicationException(400);
 		}
 
 		User user = mapResultSetToUser(result);
@@ -177,6 +178,7 @@ public class BookmarkService {
 				bookmarks.add(bookmark);
 			}
 			return bookmarks;
+//			return "{\"Status\" : \"OK\"},{\"url\" : \"user/\" + + \"/bookmarks\"}";
 		} catch (SQLException ex) {
 			LOGGER.log(Level.SEVERE, "Problem while calling findAllBookmarks", ex);
 			throw ex;
