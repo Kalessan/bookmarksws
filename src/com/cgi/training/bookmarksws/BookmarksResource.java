@@ -32,7 +32,7 @@ public class BookmarksResource {
 	@Path("user/{id}/bookmarks")
 	@GET
 	@Produces(MediaType.APPLICATION_JSON)
-	public String getBookmarksById(@PathParam("id") int id) throws ClassNotFoundException, SQLException {
+	public List<Bookmark> getBookmarksById(@PathParam("id") int id) throws ClassNotFoundException, SQLException {
 		if(id < 0) {
 			throw new WebApplicationException(404);
 		}
@@ -42,7 +42,7 @@ public class BookmarksResource {
 			try {
 				bookmarks = bs.findAllBookmarks(id);
 //				System.out.println(bookmarks);
-				return bookmarks.toString();
+				return bookmarks;
 			} catch (UserDoesNotExistException ex) {
 				// System.out.println("L'utilisateur n'existe pas " + ex.getMessage());
 				throw new WebApplicationException(404);
